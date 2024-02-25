@@ -47,8 +47,6 @@ updateDNSRecord() {
     local http_status=$(cat "$TEMP_FILE")
     local response_body=$(cat "$RESPONSE_FILE")
 
-    echo "$ip" > "$LAST_IP_FILE" # Save the current IP
-
     handleResponse "$http_status" "$response_body"
 }
 
@@ -67,13 +65,25 @@ handleResponse() {
             updateEnvFile "$new_record_id"
         else
             echo "Could not extract the new record ID from the response."
+	    cleanUp
+	    return
         fi
     else
         echo "Failed to update DNS record. HTTP status: $http_status"
         echo "Response: $response_body"
+
+	cleanUp
+	return
     fi
 
-    # Clean up temporary files
+    cleanUp
+
+    # Update the last IP file
+    echo "$ip" > "$LAST_IP_FILE"  
+}
+
+# Function to clean up temporary files
+cleanUp() {
     rm -f "$RESPONSE_FILE" "$TEMP_FILE"
 }
 
