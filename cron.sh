@@ -103,6 +103,7 @@ main() {
     local currentIP=$(getCurrentIP)
     local previousIP=$(getPreviousIP)
 
+    echo $(date)
     echo "Current external IP is: $currentIP"
     if [ -z "$previousIP" ]; then
         echo "No previous record of the IP found. Is this the first run?"
