@@ -22,9 +22,22 @@ getPreviousIP() {
     cat "$LAST_IP_FILE" 2>/dev/null
 }
 
+# Function to retrieve the existing DNS record from Vercel
+getDNSRecord() {
+  # Ensure variables are loaded from the environment file
+  if ! source "$ENV_FILE"; then
+    echo "Error: Failed to load environment variables from $ENV_FILE"
+    exit 1
+  fi
+
+  curl -s -o "$RESPONSE_FILE" -X GET "https://api.vercel.com/v1/domains/$DOMAIN/records?name=$SUBDOMAIN&type=A" \
+    -H "Authorization: Bearer $TOKEN"
+}
+
 # Function to update the DNS record on Vercel
 updateDNSRecord() {
     local ip="$1"
+    local record_id="$2"
 
     # Ensure variables are loaded from the environment file
     if ! source "$ENV_FILE"; then
@@ -56,13 +69,23 @@ handleResponse() {
     local response_body="$2"
 
     if [ "$http_status" -eq 200 ]; then
-        echo "DNS record updated successfully."
+	# Extract the existing IP from the response
+        local existing_ip=$(echo "$response_body" | jq -r '.[0].value') # Assuming the first record is the relevant one
+
+        if [ "$existing_ip" != "$ip" ]; then 
+            echo "IP address differs. Updating DNS record..."
+            local record_id=$(echo "$response_body" | jq -r '.[0].id') 
+            updateDNSRecord "$ip" "$record_id"
+        else
+            echo "DNS record is up-to-date. No update necessary."
+        fi
+        #echo "DNS record updated successfully."
 
         # Extract the new record ID from the response
-        local new_record_id=$(echo "$response_body" | jq -r '.id')
-        if [ -n "$new_record_id" ] && [ "$new_record_id" != "null" ]; then
-            echo "Updating .env file with the new record ID: $new_record_id"
-            updateEnvFile "$new_record_id"
+        #local new_record_id=$(echo "$response_body" | jq -r '.id')
+        #if [ -n "$new_record_id" ] && [ "$new_record_id" != "null" ]; then
+        #    echo "Updating .env file with the new record ID: $new_record_id"
+        #    updateEnvFile "$new_record_id"
         else
             echo "Could not extract the new record ID from the response."
 	    cleanUp
